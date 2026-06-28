@@ -71,12 +71,25 @@ class STTProcessor:
         if not self.model_path:
             self.model_path = config.get("stt.model_path", "models/vosk-model-ru-0.42")
 
-    def initialize(self):
+    def initialize(self, is_cancelled=None):
         """Load the Vosk model from disk.
+
+        Args:
+            is_cancelled: Optional callable returning True if loading should
+                be aborted. Checked after the native Model() call (which
+                cannot be interrupted) to release memory early if superseded.
 
         Returns:
             True if the model was loaded successfully, False otherwise.
         """
+        # Helper: check cancellation (cleanup is done by caller via proc.cleanup())
+        def _cancelled():
+            if is_cancelled and is_cancelled():
+                log.info("Vosk initialize cancelled (is_cancelled=True)")
+                # Don't set self.model = None here — let cleanup() handle it
+                return True
+            return False
+
         try:
             if not os.path.exists(self.model_path):
                 log.error(f"Vosk model not found: {self.model_path}")
@@ -90,8 +103,23 @@ class STTProcessor:
             vosk_start_time = time.time()
             log.info(f"Vosk model loading started at {time.strftime('%H:%M:%S')}")
 
+            # Check cancellation BEFORE the long blocking Model() call
+            # (cannot be interrupted once started)
+            if _cancelled():
+                log.info("Skipping Model() load — already cancelled")
+                return False
+
             # Load Vosk model and create recognizer (CPU only)
+            # Note: Model() is a blocking native call that cannot be interrupted
+            log.info("Calling Vosk Model() — this may take 1-2 minutes...")
             self.model = Model(self.model_path)
+            log.info("Vosk Model() returned")
+
+            # Check cancellation AFTER native Model() call (cannot interrupt it)
+            if _cancelled():
+                log.info("Skipping recognizer creation — load cancelled")
+                return False
+
             self.recognizer = KaldiRecognizer(self.model, self.sample_rate)
 
             vosk_loading_time = time.time() - vosk_start_time
@@ -122,6 +150,20 @@ class STTProcessor:
     def get_device_label(self):
         """Return the device identifier (always 'cpu' for Vosk)."""
         return "cpu"
+
+    def cleanup(self):
+        """Release the Vosk model and recognizer (free RAM).
+
+        Vosk uses native C++ objects via ctypes. Setting to None allows
+        Python's GC to eventually free the underlying memory.
+        """
+        if self.model is not None or self.recognizer is not None:
+            log.info("Cleaning up Vosk model and recognizer...")
+        self.recognizer = None
+        self.model = None
+        import gc
+        gc.collect()
+        log.info("Vosk processor cleaned up (model released)")
 
     def _validate_wav(self, wf):
         """Validate WAV file format (mono, 16-bit, correct sample rate).

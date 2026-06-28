@@ -39,16 +39,12 @@ if errorlevel 1 (
     git branch -M main
 )
 
-REM Get commit message
+REM Get commit message (auto-generate if not provided)
 set "MSG=%~1"
-if "%MSG%"=="" (
-    set /p "MSG=Commit message: "
+if "!MSG!"=="" (
+    for /f "tokens=1-3 delims=. " %%a in ('"%DATE:~0,4%-%DATE:~5,2%-%DATE:~8,2% %TIME:~0,8%"') do set "MSG=update %%a %%b"
 )
-if "%MSG%"=="" (
-    echo [ERROR] Commit message is required.
-    pause
-    exit /b 1
-)
+if "!MSG!"=="" set "MSG=update"
 
 REM Stage all changes
 echo [STEP] Staging changes...
@@ -77,22 +73,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Check if remote exists
+REM Check if remote exists (hardcoded repo)
+set "REPO=kabzon93region/Clerkonator"
 git remote get-url origin >nul 2>&1
 if errorlevel 1 (
-    echo.
-    echo [INFO] No remote 'origin' configured.
-    set /p "REPO=Enter GitHub repo (e.g. user/repo): "
-    if "!REPO!"=="" (
-        echo [ERROR] Repository is required.
-        pause
-        exit /b 1
-    )
+    echo [INFO] No remote configured. Setting up origin...
+    git remote add origin https://github.com/%REPO%.git
     echo [STEP] Creating GitHub repository...
-    gh repo create "!REPO!" --public --source=. --push
+    gh repo create "%REPO%" --public --source=. --push
     if errorlevel 1 (
         echo [ERROR] Failed to create repository.
-        echo [INFO] Try manually: gh repo create
+        echo [INFO] Try manually: gh repo create %REPO%
         pause
         exit /b 1
     )

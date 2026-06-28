@@ -132,21 +132,42 @@ class ServerTrayManager:
         model_id = self._model_map.get(label, label)
         if self._cb_switch_model:
             log.info(f"Switching model to: {model_id}")
-            threading.Thread(
-                target=self._cb_switch_model, args=(model_id,), daemon=True
-            ).start()
+            # Call switch_model synchronously to get the result
+            result = self._cb_switch_model(model_id)
+            if result is False:
+                # Switch was rejected (model loading in progress)
+                log.warning(f"Model switch rejected: model is currently loading")
 
     def _build_model_submenu(self):
-        """Build submenu with available models."""
+        """Build submenu with available models.
+        
+        During model loading, all items are disabled with a status message.
+        """
         try:
             from utils.stt_model_catalog import list_local_stt_models
             models = list_local_stt_models()
             self._model_map = {}
             items = []
+            
+            # Check if model is currently loading
+            is_loading = self.state and self.state.model_loading
+            
+            if is_loading:
+                # Show disabled message during loading
+                current_model = self.state.model_name if self.state else ""
+                msg = f"Загрузка: {current_model}..." if current_model else "Загрузка модели..."
+                items.append(MenuItem(msg, None, enabled=False))
+                items.append(Menu.SEPARATOR)
+            
             for m in models:
                 self._model_map[m.combo_label] = m.model_id
-                items.append(MenuItem(m.combo_label, self._on_switch_model_menu))
-            if not items:
+                # Disable all model items during loading
+                items.append(MenuItem(
+                    m.combo_label, 
+                    self._on_switch_model_menu,
+                    enabled=not is_loading
+                ))
+            if not models:
                 items.append(MenuItem("(нет моделей)", None, enabled=False))
             return Menu(*items)
         except Exception as e:

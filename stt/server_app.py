@@ -414,27 +414,43 @@ def switch_model(model_id):
     * ``POST /api/switch-model`` (REST API)
     * Server tray menu ("Модели" submenu)
 
+    Safety: Blocks switching while a model is currently loading to prevent
+    race conditions and stuck states. The user must wait for the current
+    load to complete before switching.
+
     Steps:
-    1. Look up the model in the catalog by ``model_id`` (e.g. ``'whisper:large-v3-turbo'``).
-    2. Clean up the current processor (release VRAM).
-    3. Update config with the new model settings.
-    4. Call :func:`load_model_async` to load in a background thread.
+    1. Check if a model is currently loading — reject if so.
+    2. Look up the model in the catalog by ``model_id``.
+    3. Clean up the current processor (release VRAM).
+    4. Update config with the new model settings.
+    5. Call :func:`load_model_async` to load in a background thread.
 
     Args:
         model_id: Model identifier string (``engine:size`` format).
+
+    Returns:
+        True if switch was initiated, False if rejected (loading in progress).
     """
     global _processor
     state = get_state()
     if not state:
         log.error("Cannot switch model: server state not ready")
-        return
+        return False
+
+    # Safety: block switching during model loading
+    if state.model_loading:
+        log.warning(
+            f"Model switch to '{model_id}' rejected — model is currently loading. "
+            "Please wait for the current load to complete."
+        )
+        return False
 
     try:
         from utils.stt_model_catalog import find_model_by_id
         model = find_model_by_id(model_id)
         if not model:
             log.error(f"Model not found: {model_id}")
-            return
+            return False
 
         log.info(f"Switching to model: {model.title} ({model.engine}/{model.device})")
 
@@ -470,11 +486,13 @@ def switch_model(model_id):
         # Load new model
         load_model_async(config, state)
         log.info(f"Model switch initiated: {model.title}")
+        return True
     except Exception as e:
         log.error(f"Switch model error: {e}")
         with state.lock:
             state.model_loading = False
             state.model_error = str(e)
+        return False
 
 
 def reload_server():
@@ -793,7 +811,7 @@ class STTHTTPHandler(BaseHTTPRequestHandler):
         """Handle ``POST /api/switch-model`` — switch STT model at runtime.
 
         Expects JSON body: ``{"model_id": "whisper:large-v3-turbo"}``
-        Starts the switch in a background thread and returns immediately.
+        Returns 200 if switch initiated, 409 if rejected (model loading).
         """
         try:
             body = self._read_json_body()
@@ -805,8 +823,15 @@ class STTHTTPHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": "model_id required"})
                 return
             log.info(f"Switch model requested: {model_id}")
-            threading.Thread(target=switch_model, args=(model_id,), daemon=True).start()
-            self._send_json(200, {"status": "switching", "model_id": model_id})
+            result = switch_model(model_id)
+            if result:
+                self._send_json(200, {"status": "switching", "model_id": model_id})
+            else:
+                state = get_state()
+                error_msg = "model is currently loading, please wait"
+                if state and state.model_error:
+                    error_msg = state.model_error
+                self._send_json(409, {"status": "rejected", "error": error_msg})
         except Exception as e:
             self._send_json(500, {"error": str(e)})
 
@@ -886,13 +911,24 @@ def load_model_async(config, state):
                 return
 
             proc = create_server_processor(config)
+
+            # Check cancellation before starting long initialization
+            if my_generation != _load_generation:
+                log.info(
+                    f"Model load cancelled before initialize() (generation {my_generation} "
+                    f"superseded by {_load_generation})"
+                )
+                return
+
             if device == "gpu":
                 log.info(
                     "Whisper GPU: сначала скачивание модели (если нет в models/whisper/), "
                     "затем загрузка в VRAM"
                 )
             log.info("Loading STT model (may take several minutes)...")
-            if not proc.initialize():
+            # Pass cancellation callback so initialize() can abort early
+            # (e.g. skip GPU warmup if generation has been superseded)
+            if not proc.initialize(is_cancelled=lambda: my_generation != _load_generation):
                 # Check if cancelled during long initialization
                 if my_generation != _load_generation:
                     log.info(
@@ -939,6 +975,9 @@ def load_model_async(config, state):
         finally:
             if my_generation == _load_generation:
                 state.model_loading = False
+                # Rebuild tray menu so model items become enabled again
+                if _tray_manager:
+                    _tray_manager.update_model_menu()
 
     threading.Thread(target=worker, name=f"STT-ModelLoad-{my_generation}", daemon=True).start()
 

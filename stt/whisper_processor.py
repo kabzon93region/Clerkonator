@@ -94,12 +94,26 @@ class WhisperSTTProcessor:
         self.engine_label = "whisper-cpu"  # Updated after initialize()
         self.model_path = None          # Path to the downloaded model folder
 
-    def initialize(self):
+    def initialize(self, is_cancelled=None):
         """Load the Whisper model (GPU first, CPU fallback).
+
+        Args:
+            is_cancelled: Optional callable returning True if loading should
+                be aborted (e.g. generation counter mismatch on model switch).
+                Checked at key points to avoid wasting time on GPU warmup
+                for a model that will be immediately discarded.
 
         Returns:
             True if the model loaded successfully, False otherwise.
         """
+        # Helper: check cancellation without raising
+        def _cancelled():
+            if is_cancelled and is_cancelled():
+                log.info("Whisper initialize cancelled (is_cancelled=True)")
+                self.model = None
+                return True
+            return False
+
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:
@@ -116,6 +130,9 @@ class WhisperSTTProcessor:
             log.error(f"Whisper model download failed: {exc}")
             return False
 
+        if _cancelled():
+            return False
+
         want_gpu = self.device_mode == "gpu"
         if want_gpu and cuda_available():
             if not find_cublas_dll():
@@ -123,6 +140,10 @@ class WhisperSTTProcessor:
             else:
                 log.info("Loading model into VRAM (CUDA)...")
                 if self._load_model(WhisperModel, "cuda", self.compute_type_gpu):
+                    # Check cancellation BEFORE GPU warmup (saves ~15s if superseded)
+                    if _cancelled():
+                        log.info("Skipping GPU warmup — load cancelled")
+                        return False
                     if self._verify_gpu_inference():
                         self.actual_device = "cuda"
                         self.engine_label = "whisper-gpu"
@@ -135,6 +156,9 @@ class WhisperSTTProcessor:
         # GPU failed or not requested — try CPU fallback
         if want_gpu and not self.fallback_cpu:
             log.error("GPU unavailable and fallback_cpu=false")
+            return False
+
+        if _cancelled():
             return False
 
         log.info("Loading model into RAM (CPU)...")
@@ -339,9 +363,14 @@ class WhisperSTTProcessor:
 
         Explicitly calls gc.collect() to ensure CTranslate2 releases
         GPU/CPU memory immediately rather than waiting for GC cycles.
+        Calls torch.cuda.empty_cache() if available to free CUDA allocator.
         """
+        if self.model is not None:
+            log.info(f"Cleaning up Whisper model (device={self.actual_device})...")
         self.model = None
         import gc
+        # Two-pass GC to ensure all circular references are collected
+        gc.collect()
         gc.collect()
         # Try to free CUDA cache if torch is available (faster-whisper uses CTranslate2,
         # but some setups may have torch loaded which holds VRAM references)
@@ -349,6 +378,7 @@ class WhisperSTTProcessor:
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                log.info("CUDA cache cleared")
         except ImportError:
             pass
         log.info("Whisper processor cleaned up (model released)")

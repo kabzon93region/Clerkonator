@@ -1,8 +1,14 @@
 # ============================================
 # Clerkonator — .gitignore
 # ============================================
+
+# ─── Project-specific excludes ──────────────
 convert_line_endings.cmd
 convert_line_endings.py
+docs/cursor_speech_to_text.md
+README-example.md
+kill_python_processes.cmd
+publish.cmd
 
 # ─── Python ─────────────────────────────────
 __pycache__/
@@ -16,6 +22,22 @@ dist/
 build/
 *.manifest
 *.spec
+.Python
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
 
 # ─── Virtual environments ───────────────────
 .env
@@ -23,6 +45,14 @@ build/
 env/
 venv/
 ENV/
+env.bak/
+venv.bak/
+.python-version
+__pypackages__/
+
+# ─── PyInstaller ────────────────────────────
+*.manifest
+*.spec
 
 # ─── IDE: Qoder ─────────────────────────────
 .qoder/
@@ -36,7 +66,7 @@ AGENTS.md
 .cursor/
 cursor_project_analysis.md
 
-# ─── IDE: VSCode / PyCharm / other ──────────
+# ─── IDE: VSCode / PyCharm / Spyder ─────────
 .vscode/
 .idea/
 *.swp
@@ -46,6 +76,23 @@ cursor_project_analysis.md
 .spyproject
 .ropeproject
 
+# ─── IDE: AI tools (Copilot, Windsurf, Cline, Aider, etc.) ──
+.github/copilot*
+.windsurf/
+.cline/
+.aider*
+*.aider*
+.continue/
+.tabnine/
+codeium/
+
+# ─── AI chat exports / instruction remnants ─
+.cursorrules
+.qoderrules
+AGENTS.md
+.cursor/
+.qoder/
+
 # ─── Project data (user-specific) ───────────
 data/recordings/
 data/transcriptions/
@@ -53,9 +100,10 @@ data/server_temp/
 logs/
 *.log
 
-# ─── Config files (keep examples, ignore user)
+# ─── Config files (keep examples, ignore user) ──
 config.client.json
 config.server.json
+config.json
 
 # ─── Models (large binaries) ────────────────
 models/vosk-model-*/
@@ -65,6 +113,13 @@ models/*.zip
 # ─── Build output ───────────────────────────
 release/
 *.exe
+
+# ─── Version manager local state ────────────
+versions/versions.json
+versions/v*/
+
+# ─── Tools (dev-only, not for distribution) ─
+tools/
 
 # ─── Test / coverage ────────────────────────
 htmlcov/
@@ -77,13 +132,17 @@ htmlcov/
 .hypothesis/
 test_output/
 test_results/
-
-# ─── Version manager local state ────────────
-versions/versions.json
-versions/v*/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
 
 # ─── OS generated ───────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 ehthumbs.db
 Desktop.ini
@@ -97,186 +156,33 @@ temp/
 tmp/
 backup_*/
 
-# ─── Assets (keep source, ignore generated) ──
-assets/app_icon.ico
-assets/server_icon.ico
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
+# ─── Django / Flask / Scrapy / Sphinx ───────
 db.sqlite3
 db.sqlite3-journal
-
-# Flask stuff:
+local_settings.py
 instance/
 .webassets-cache
-
-# Scrapy stuff:
 .scrapy
-
-# Sphinx documentation
 docs/_build/
-
-# PyBuilder
 target/
 
-# Jupyter Notebook
+# ─── Jupyter / IPython ──────────────────────
 .ipynb_checkpoints
-
-# IPython
 profile_default/
 ipython_config.py
 
-# pyenv
-.python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-
-# Celery stuff
+# ─── Celery / SageMath / Pyre / mypy ────────
 celerybeat-schedule
 celerybeat.pid
-
-# SageMath parsed files
 *.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
-
-# Pyre type checker
 .pyre/
 
-# Project specific
-# Data files
-data/recordings/
-data/transcriptions/
+# ─── Translations ───────────────────────────
+*.mo
+*.pot
 
-# Configuration files (keep template)
-config.json
-
-# Logs
-*.log
-logs/
-
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
-
-# OS specific
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE specific
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Backup files
-*.bak
-*.backup
-backup_*/
-
-# Model files (too large for git)
-models/vosk-model-ru-0.42/
-models/*.zip
-
-# Version files (managed by version manager)
-versions/versions.json
-versions/v*/
-
-# Test outputs
-test_output/
-test_results/
+# ─── mkdocs ─────────────────────────────────
+/site
