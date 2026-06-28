@@ -1,0 +1,29 @@
+{
+  "listen": {
+    "host": "0.0.0.0",
+    "port": 8765
+  },
+  "server": {
+    "max_queue_size": 20
+  },
+  "audio": {
+    "sample_rate": 16000
+  },
+  "stt": {
+    "recognition": {
+      "source_language": "ru",
+      "translate": false,
+      "target_language": "en"
+    },
+    "language": "ru",
+    "model_path": "models/vosk-model-ru-0.42",
+    "server": {
+      "device": "gpu",
+      "whisper_model": "large-v3-turbo",
+      "whisper_cache_dir": "models/whisper",
+      "whisper_use_system_proxy": false,
+      "whisper_compute_type": "float16",
+      "fallback_cpu": true
+    }
+  }
+}

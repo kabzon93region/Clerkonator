@@ -1,0 +1,50 @@
+{
+  "hotkeys": {
+    "show_window": "ctrl+alt+e",
+    "record_toggle": "ctrl+alt+r",
+    "pause_recording": "ctrl+alt+p",
+    "cancel_recording": "ctrl+alt+x"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "chunk_size": 4096,
+    "format": "int16",
+    "input_device_index": null
+  },
+  "stt": {
+    "mode": "none",
+    "recognition": {
+      "source_language": "ru",
+      "translate": false,
+      "target_language": "en",
+      "initial_prompt": null
+    },
+    "remote": {
+      "host": "192.168.0.100",
+      "port": 8765,
+      "timeout": 1800
+    },
+    "local": {
+      "device": "gpu",
+      "model": "large-v3-turbo"
+    },
+    "options": {
+      "whisper_cache_dir": "models/whisper",
+      "whisper_use_system_proxy": false,
+      "whisper_compute_type": "float16",
+      "fallback_cpu": true
+    }
+  },
+  "files": {
+    "audio_dir": "data/recordings",
+    "text_dir": "data/transcriptions",
+    "audio_format": "wav"
+  },
+  "gui": {
+    "window_size": "480x340",
+    "always_on_top": false,
+    "theme": "dark",
+    "auto_copy": true
+  }
+}

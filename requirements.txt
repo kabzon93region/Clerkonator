@@ -1,0 +1,10 @@
+pyaudio
+vosk
+pyperclip
+pynput
+psutil
+Pillow
+pystray
+win10toast-click
+loguru
+pygame 
