@@ -42,7 +42,7 @@ if errorlevel 1 (
 REM Get commit message (auto-generate if not provided)
 set "MSG=%~1"
 if "!MSG!"=="" (
-    for /f "tokens=1-3 delims=. " %%a in ('"%DATE:~0,4%-%DATE:~5,2%-%DATE:~8,2% %TIME:~0,8%"') do set "MSG=update %%a %%b"
+    for /f "delims=" %%T in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm'"') do set "MSG=update %%T"
 )
 if "!MSG!"=="" set "MSG=update"
 
@@ -89,6 +89,11 @@ if errorlevel 1 (
     )
     echo [OK] Repository created and pushed!
 ) else (
+    echo [STEP] Pulling remote changes...
+    git pull --rebase
+    if errorlevel 1 (
+        echo [WARN] Pull failed. Trying push anyway...
+    )
     echo [STEP] Pushing to origin...
     git push
     if errorlevel 1 (
