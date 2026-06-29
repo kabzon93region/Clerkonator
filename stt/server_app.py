@@ -901,6 +901,17 @@ def load_model_async(config, state):
                     state.model_error = "failed to install vosk model"
                     log.error(state.model_error)
                     return
+            else:
+                # Whisper GPU: ensure model is downloaded before creating processor
+                log.info("Checking Whisper model...")
+                try:
+                    from utils.whisper_downloader import ensure_whisper_model
+                    whisper_model = config.get_stt_engine("whisper_model", "large-v3-turbo")
+                    ensure_whisper_model(config, whisper_model)
+                except Exception as exc:
+                    state.model_error = f"failed to download whisper model: {exc}"
+                    log.error(state.model_error)
+                    return
 
             # Check again after potentially long download
             if my_generation != _load_generation:
@@ -1058,9 +1069,9 @@ def main():
     2. Load ``config.server.json``.
     3. Create :class:`ServerState` and :class:`TranscriptionQueue`.
     4. Start the HTTP server in a background thread.
-    5. Start loading the model in the background (:func:`load_model_async`).
-    6. Recover any unprocessed temp files (:func:`_recover_temp_files`).
-    7. Start the tray icon manager.
+    5. Start the tray icon manager (so user sees status/errors immediately).
+    6. Start loading the model in the background (:func:`load_model_async`).
+    7. Recover any unprocessed temp files (:func:`_recover_temp_files`).
     8. Enter the main loop (wait for shutdown signal).
     """
     global _state, _job_queue, _server, _tray_manager
@@ -1100,12 +1111,7 @@ def main():
         "GET /api/job/<id>, POST /api/transcribe, /api/switch-model, /api/reload, /api/shutdown"
     )
 
-    load_model_async(config, _state)
-
-    # Recover unprocessed temp files from previous crash
-    _recover_temp_files(_job_queue)
-
-    # Start tray manager
+    # Start tray manager BEFORE model loading so user can see status/errors
     try:
         from utils.server_tray import ServerTrayManager
         _tray_manager = ServerTrayManager(
@@ -1117,15 +1123,23 @@ def main():
         )
         _tray_manager.start_in_thread()
         log.info("Server tray manager started")
-        # Refresh model menu shortly after tray starts (models may already be loaded)
+    except Exception as e:
+        log.warning(f"Tray manager not started: {e}")
+        _tray_manager = None
+
+    # Now start model loading (tray will show progress/errors)
+    load_model_async(config, _state)
+
+    # Recover unprocessed temp files from previous crash
+    _recover_temp_files(_job_queue)
+
+    # Refresh model menu shortly after tray starts (models may already be loaded)
+    if _tray_manager:
         def _refresh_menu_later():
             time.sleep(2)
             if _tray_manager:
                 _tray_manager.update_model_menu()
         threading.Thread(target=_refresh_menu_later, daemon=True).start()
-    except Exception as e:
-        log.warning(f"Tray manager not started: {e}")
-        _tray_manager = None
 
     # Signal handling for graceful shutdown
     def signal_handler(sig, frame):
