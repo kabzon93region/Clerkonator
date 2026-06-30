@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
-  "last_updated": "2026-06-29T02:30:00.000000",
-  "description": "Clerkonator - STT Server with Whisper GPU support and safe model switching"
+  "version": "1.0.6",
+  "last_updated": "2026-06-30T22:00:00.000000",
+  "description": "Clerkonator - GPU support in EXE, auto-download models with retry"
 }

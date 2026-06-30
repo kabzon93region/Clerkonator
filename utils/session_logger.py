@@ -14,8 +14,14 @@ from pathlib import Path
 class SessionLogger:
     """Logger that creates separate log files for each session"""
     
-    def __init__(self, log_dir="logs"):
+    def __init__(self, log_dir=None):
         """Initialize session logger"""
+        if log_dir is None:
+            # For PyInstaller EXE: use exe directory
+            if getattr(sys, 'frozen', False):
+                log_dir = os.path.join(os.path.dirname(sys.executable), "logs")
+            else:
+                log_dir = "logs"
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
         

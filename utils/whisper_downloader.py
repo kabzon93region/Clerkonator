@@ -137,10 +137,61 @@ def _hf_http_direct():
 def _snapshot_download(repo_id, model_dir):
     from huggingface_hub import snapshot_download
 
+    # Dummy tqdm class for --windowed mode (stdout=None)
+    # huggingface_hub requires: get_lock(), update(), close(), __enter__, __exit__, set_description
+    import threading
+
+    class _NoTqdm:
+        _lock = threading.Lock()
+
+        def __init__(self, *args, **kwargs):
+            self.n = 0
+            self.total = kwargs.get('total', 0)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            raise StopIteration
+
+        def update(self, n=1):
+            self.n += n
+
+        def close(self):
+            pass
+
+        def set_description(self, *args, **kwargs):
+            pass
+
+        def set_postfix(self, *args, **kwargs):
+            pass
+
+        def refresh(self):
+            pass
+
+        @classmethod
+        def get_lock(cls):
+            return cls._lock
+
+        @classmethod
+        def set_lock(cls, lock):
+            cls._lock = lock
+
+        @classmethod
+        def write(cls, s, **kwargs):
+            pass
+
     return snapshot_download(
         repo_id,
         local_dir=model_dir,
         allow_patterns=_ALLOW_PATTERNS,
+        tqdm_class=_NoTqdm,
     )
 
 

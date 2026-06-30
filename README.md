@@ -1,7 +1,7 @@
 # 🎤 Clerkonator
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.0.4-blue)](https://github.com/kabzon93region/Clerkonator/releases)
+[![Release](https://img.shields.io/badge/release-v1.0.6-blue)](https://github.com/kabzon93region/Clerkonator/releases)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Whisper](https://img.shields.io/badge/faster--whisper-GPU%20%2F%20CPU-orange)](https://github.com/SYSTRAN/faster-whisper)
@@ -12,7 +12,7 @@
 | | |
 |---|---|
 | **Разработчик** | [kabzon93region](https://github.com/kabzon93region) |
-| **Версия** | 1.0.4 |
+| **Версия** | 1.0.6 |
 | **Платформа** | Windows 10/11 |
 | **GitHub** | [Clerkonator](https://github.com/kabzon93region/Clerkonator) |
 

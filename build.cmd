@@ -12,15 +12,23 @@ cd /d "%~dp0"
 echo [BUILD] Clerkonator — Build EXE
 echo.
 
-REM Check PyInstaller
-python -c "import PyInstaller" 2>nul
+REM Use venv Python for building (packages are installed there)
+set "PYTHON=venv\Scripts\python.exe"
+if not exist "%PYTHON%" (
+    echo [ERROR] venv not found. Run setup.cmd first.
+    pause
+    exit /b 1
+)
+
+REM Check PyInstaller in venv
+"%PYTHON%" -c "import PyInstaller" 2>nul
 if errorlevel 1 (
-    echo [INFO] Installing PyInstaller...
-    pip install pyinstaller
+    echo [INFO] Installing PyInstaller in venv...
+    "%PYTHON%" -m pip install pyinstaller
 )
 
 REM Ensure icons exist
-python -c "from utils.app_icon import ensure_icon_files, ensure_server_icon_files; ensure_icon_files(); ensure_server_icon_files()"
+"%PYTHON%" -c "from utils.app_icon import ensure_icon_files, ensure_server_icon_files; ensure_icon_files(); ensure_server_icon_files()"
 set CLIENT_ICON=assets\app_icon.ico
 set SERVER_ICON=assets\server_icon.ico
 
@@ -33,7 +41,7 @@ echo  Building CLIENT...
 echo ════════════════════════════════════════════
 echo.
 
-pyinstaller --noconfirm --onefile --windowed ^
+"%PYTHON%" -m PyInstaller --noconfirm --onefile --windowed ^
     --name "Clerkonator-Client" ^
     --icon "%CLIENT_ICON%" ^
     --add-data "assets;assets" ^
@@ -43,7 +51,35 @@ pyinstaller --noconfirm --onefile --windowed ^
     --hidden-import "PIL._tkinter_finder" ^
     --hidden-import "pygame" ^
     --hidden-import "vosk" ^
+    --hidden-import "pyaudio" ^
+    --hidden-import "pyperclip" ^
+    --hidden-import "pystray" ^
+    --hidden-import "PIL" ^
+    --hidden-import "PIL.Image" ^
+    --hidden-import "certifi" ^
+    --hidden-import "httpx" ^
+    --hidden-import "faster_whisper" ^
+    --hidden-import "ctranslate2" ^
+    --hidden-import "onnxruntime" ^
+    --hidden-import "huggingface_hub" ^
     --collect-all "vosk" ^
+    --collect-all "PIL" ^
+    --collect-all "pystray" ^
+    --collect-all "certifi" ^
+    --collect-all "httpx" ^
+    --collect-all "faster_whisper" ^
+    --collect-all "ctranslate2" ^
+    --collect-all "onnxruntime" ^
+    --collect-all "huggingface_hub" ^
+    --collect-all "nvidia-cublas-cu12" ^
+    --collect-all "nvidia-cudnn-cu12" ^
+    --collect-all "nvidia-cuda-runtime-cu12" ^
+    --collect-all "nvidia-cuda-nvrtc-cu12" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cublas\bin\cublas64_12.dll;nvidia\cublas\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cublas\bin\cublasLt64_12.dll;nvidia\cublas\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cudnn\bin\cudnn64_9.dll;nvidia\cudnn\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cuda_runtime\bin\cudart64_12.dll;nvidia\cuda_runtime\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cuda_nvrtc\bin\nvrtc64_120_0.dll;nvidia\cuda_nvrtc\bin" ^
     main.py
 
 if errorlevel 1 (
@@ -61,7 +97,12 @@ echo  Building SERVER...
 echo ════════════════════════════════════════════
 echo.
 
-pyinstaller --noconfirm --onefile --windowed ^
+REM Clean build cache to ensure fresh dependencies
+if exist build rmdir /s /q build
+if exist "Clerkonator-Server.spec" del /q "Clerkonator-Server.spec"
+
+REM Server needs console window for show/hide via tray menu
+"%PYTHON%" -m PyInstaller --clean --noconfirm --onefile ^
     --name "Clerkonator-Server" ^
     --icon "%SERVER_ICON%" ^
     --add-data "assets;assets" ^
@@ -69,9 +110,27 @@ pyinstaller --noconfirm --onefile --windowed ^
     --hidden-import "faster_whisper" ^
     --hidden-import "ctranslate2" ^
     --hidden-import "vosk" ^
+    --hidden-import "pystray" ^
+    --hidden-import "PIL" ^
+    --hidden-import "PIL.Image" ^
+    --hidden-import "PIL.ImageDraw" ^
+    --hidden-import "huggingface_hub" ^
+    --hidden-import "httpx" ^
     --collect-all "vosk" ^
     --collect-all "faster_whisper" ^
     --collect-all "ctranslate2" ^
+    --collect-all "huggingface_hub" ^
+    --collect-all "pystray" ^
+    --collect-all "PIL" ^
+    --collect-all "nvidia-cublas-cu12" ^
+    --collect-all "nvidia-cudnn-cu12" ^
+    --collect-all "nvidia-cuda-runtime-cu12" ^
+    --collect-all "nvidia-cuda-nvrtc-cu12" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cublas\bin\cublas64_12.dll;nvidia\cublas\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cublas\bin\cublasLt64_12.dll;nvidia\cublas\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cudnn\bin\cudnn64_9.dll;nvidia\cudnn\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cuda_runtime\bin\cudart64_12.dll;nvidia\cuda_runtime\bin" ^
+    --add-binary "venv\Lib\site-packages\nvidia\cuda_nvrtc\bin\nvrtc64_120_0.dll;nvidia\cuda_nvrtc\bin" ^
     stt\server_app.py
 
 if errorlevel 1 (

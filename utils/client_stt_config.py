@@ -36,6 +36,15 @@ _STT_OPTION_DEFAULTS = {
 
 
 def _project_root() -> str:
+    """Return project root directory.
+    
+    For PyInstaller EXE: directory containing the .exe file.
+    For normal Python: parent of utils/ directory.
+    """
+    import sys
+    if getattr(sys, 'frozen', False):
+        # PyInstaller: exe directory
+        return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

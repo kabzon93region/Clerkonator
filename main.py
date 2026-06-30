@@ -327,14 +327,49 @@ class ClerkonatorApp:
         """
         def load_worker():
             try:
+                # Configure CUDA DLL paths BEFORE importing any CUDA-dependent modules
+                from utils.cuda_runtime import configure_cuda_dll_paths
+                configure_cuda_dll_paths()
+                
                 from utils.client_stt_config import resolve_local_model
 
                 model = resolve_local_model(self.config)
                 if model and model.engine == "whisper":
                     log.info(f"Loading Whisper model locally: {model.title}")
                     try:
+                        # Ensure Whisper model is downloaded
+                        log.info("Checking Whisper model...")
+                        from utils.whisper_downloader import ensure_whisper_model, whisper_model_dir
+                        from utils.client_stt_config import get_local_model_name
+                        
+                        whisper_size = get_local_model_name(self.config)
+                        model_dir = whisper_model_dir(self.config, whisper_size)
+                        
+                        if not os.path.isfile(os.path.join(model_dir, "model.bin")):
+                            log.info("Whisper model not found, attempting download...")
+                            
+                            last_gui_update = [0]
+                            def whisper_progress(percent=None):
+                                current_time = time.time()
+                                if current_time - last_gui_update[0] >= 5:
+                                    self._notify_gui("stt_connecting", f"Скачивание Whisper {whisper_size}...")
+                                    last_gui_update[0] = current_time
+                            
+                            self._notify_gui("stt_connecting", f"Скачивание Whisper {whisper_size}...")
+                            try:
+                                ensure_whisper_model(self.config, whisper_size)
+                            except Exception as dl_err:
+                                log.error(f"Failed to download Whisper model: {dl_err}")
+                                self.stt_connecting = False
+                                self.stt_mode = "none"
+                                self.config.set("stt.mode", "none")
+                                self._notify_gui("stt_failed",
+                                    f"Не удалось скачать Whisper модель '{whisper_size}'.\n\n"
+                                    f"Проверьте подключение к интернету и включите VPN/прокси если нужно.")
+                                self._update_tray_status("Не подключено")
+                                return
+                        
                         from stt.whisper_processor import WhisperSTTProcessor
-
                         processor = WhisperSTTProcessor(self.config)
                     except ImportError:
                         self.stt_connecting = False
@@ -348,13 +383,43 @@ class ClerkonatorApp:
                         return
                 else:
                     log.info("Loading Vosk model (local mode)...")
-                    if not model:
-                        if not download_model_if_needed(self.config):
+                    # Check if model is actually present (not just empty folder)
+                    model_ready = False
+                    if model and model.path:
+                        model_dir = model.path
+                        # Check for key Vosk model files
+                        am_file = os.path.join(model_dir, "am", "final.mdl")
+                        model_ready = os.path.isfile(am_file)
+                        if not model_ready:
+                            log.info(f"Vosk model not ready at: {model_dir}")
+                    
+                    if not model or not model_ready:
+                        log.info("Vosk model not found, attempting download...")
+                        
+                        # Progress callback for download
+                        last_gui_update = [0]
+                        def download_progress(percent):
+                            current_time = time.time()
+                            # Update GUI every 2 seconds
+                            if current_time - last_gui_update[0] >= 2:
+                                self._notify_gui("stt_connecting", f"Скачивание Vosk: {percent:.0f}%")
+                                last_gui_update[0] = current_time
+                        
+                        self._notify_gui("stt_connecting", "Скачивание модели Vosk...")
+                        if not download_model_if_needed(self.config, progress_callback=download_progress):
                             log.error("Failed to install Vosk model")
                             self.stt_connecting = False
                             self.stt_mode = "none"
                             self.config.set("stt.mode", "none")
-                            self._notify_gui("stt_failed", "Модель Vosk не найдена")
+                            # Show manual download instructions
+                            from utils.model_downloader import get_manual_download_info
+                            info = get_manual_download_info(self.config)
+                            error_msg = (
+                                f"Не удалось скачать модель Vosk.\n\n"
+                                f"Скачайте вручную:\n{info['url']}\n\n"
+                                f"Распакуйте в:\n{info['path']}"
+                            )
+                            self._notify_gui("stt_failed", error_msg)
                             self._update_tray_status("Не подключено")
                             return
                     processor = STTProcessor(self.config)

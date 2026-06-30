@@ -29,6 +29,14 @@ def configure_cuda_dll_paths():
         return added
 
     search_roots = []
+
+    # PyInstaller: nvidia packages are in _MEIPASS/nvidia/
+    if getattr(sys, '_MEIPASS', None):
+        meipass_nvidia = os.path.join(sys._MEIPASS, "nvidia")
+        if os.path.isdir(meipass_nvidia):
+            search_roots.append(sys._MEIPASS)
+
+    # Normal Python: search in site-packages
     for sp in site.getsitepackages():
         search_roots.append(sp)
     user_sp = site.getusersitepackages()
